@@ -1,9 +1,10 @@
 // Data Storage
 let transactions = [];
 let assets = [];
-// Global Firebase identifiers (updated in DOMContentLoaded)
-let db = null;
-let isFirebaseReady = false;
+// Revert to LocalStorage for stability
+const isFirebaseReady = false;
+const db = null;
+
 let marketRates = {
     USD: 0,
     silver: { name: 'Gümüş', icon: 'fa-ring', unit: 'gr' },
@@ -16,6 +17,7 @@ let marketRates = {
 };
 
 // Check if Firebase is valid
+// const isFirebaseReady = ... (disabled)
 
 
 const bankNames = {
@@ -27,20 +29,14 @@ const bankNames = {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Re-check Firebase connection status after all scripts loaded
-    if (typeof window.db !== 'undefined') {
-        db = window.db;
-        isFirebaseReady = true;
-        console.log('Using Firebase Cloud Sync ☁️');
-        subscribeToData();
-    } else {
-        console.log('Using LocalStorage 💾');
-        transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        assets = JSON.parse(localStorage.getItem('assets')) || [];
-        populateYearSelect();
-        updateUI();
-    }
+    // Force LocalStorage
+    console.log('Using LocalStorage 💾 (Fallback Mode)');
+    transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+    assets = JSON.parse(localStorage.getItem('assets')) || [];
+    populateYearSelect();
+    updateUI();
 
+    // Fetch market data
     fetchMarketData();
     setInterval(fetchMarketData, 300000);
 
@@ -178,32 +174,51 @@ function getAssetRate(type) {
 }
 
 // Transactions
-document.getElementById('transactionForm').addEventListener('submit', (e) => {
-    e.preventDefault();
+// Make save function global to bypass form submit issues
+window.saveTransaction = function () {
+    try {
+        const typeEl = document.querySelector('input[name="transType"]:checked');
+        const categoryEl = document.getElementById('transCategory');
+        const amountEl = document.getElementById('transAmount');
+        const dateEl = document.getElementById('transDate');
 
-    const transaction = {
-        type: document.querySelector('input[name="transType"]:checked').value,
-        category: document.getElementById('transCategory').value,
-        amount: parseFloat(document.getElementById('transAmount').value),
-        date: document.getElementById('transDate').value,
-        createdAt: new Date().toISOString()
-    };
+        // Manual validation
+        if (!categoryEl.value || !amountEl.value || !dateEl.value) {
+            alert("Lütfen tüm alanları doldurun.");
+            return;
+        }
 
-    if (isFirebaseReady) {
-        db.collection('transactions').add(transaction)
-            .then(() => closeModal('transactionModal'))
-            .catch(err => alert('Kayıt hatası: ' + err.message));
-    } else {
-        transaction.id = Date.now();
-        transactions.unshift(transaction);
-        saveDataLocal();
-        updateUI();
-        closeModal('transactionModal');
+        const transaction = {
+            type: typeEl.value,
+            category: categoryEl.value,
+            amount: parseFloat(amountEl.value),
+            date: dateEl.value,
+            createdAt: new Date().toISOString()
+        };
+
+        // Strict fallback
+        if (typeof isFirebaseReady !== 'undefined' && isFirebaseReady) {
+            db.collection('transactions').add(transaction)
+                .then(() => closeModal('transactionModal'))
+                .catch(err => alert('Kayıt hatası: ' + err.message));
+        } else {
+            transaction.id = Date.now();
+            if (!Array.isArray(transactions)) transactions = [];
+            transactions.unshift(transaction);
+            saveDataLocal();
+            updateUI();
+            closeModal('transactionModal');
+        }
+
+        // Reset form
+        document.getElementById('transactionForm').reset();
+        document.getElementById('transDate').valueAsDate = new Date(); // Reset date to today
+
+    } catch (error) {
+        console.error(error);
+        alert("Hata oluştu: " + error.message);
     }
-
-    e.target.reset();
-    document.getElementById('transDate').valueAsDate = new Date();
-});
+};
 
 // Assets
 let editingAssetId = null;
