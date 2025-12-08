@@ -1,14 +1,27 @@
 // Firebase Configuration
 // Bu bilgileri Firebase Konsolundan aldınız.
 
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "AIzaSyAXfHWpe7Pd1yj8lCt8mRw7RBv0x1e6r4E",
-  authDomain: "finanstakip-f2dca.firebaseapp.com",
-  projectId: "finanstakip-f2dca",
-  storageBucket: "finanstakip-f2dca.firebasestorage.app",
-  messagingSenderId: "431970136870",
-  appId: "1:431970136870:web:e8eff811609197ff2d87e7",
-  measurementId: "G-ZWXEXXW5YT"
+  apiKey: "AIzaSyDIbSp34lHzohKMa5s5H1hOQvO-y4SDI7A",
+  authDomain: "finanstakip1-e29cb.firebaseapp.com",
+  projectId: "finanstakip1-e29cb",
+  storageBucket: "finanstakip1-e29cb.firebasestorage.app",
+  messagingSenderId: "653666081026",
+  appId: "1:653666081026:web:7274a3872dab1bc6da8a1b",
+  measurementId: "G-JBC1QMW0Q3"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 };
 
 // Initialize Firebase
