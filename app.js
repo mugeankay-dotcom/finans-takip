@@ -12,6 +12,10 @@ let marketRates = {
     other: { name: 'Diğer', icon: 'fa-box', unit: 'Adet' }
 };
 
+// Check if Firebase is valid
+const isFirebaseReady = typeof window !== 'undefined' && typeof window.db !== 'undefined';
+const db = isFirebaseReady ? window.db : null;
+
 const bankNames = {
     hsbc: 'HSBC',
     garanti: 'Garanti BBVA',
