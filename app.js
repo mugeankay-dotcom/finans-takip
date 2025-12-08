@@ -1,6 +1,9 @@
 // Data Storage
 let transactions = [];
 let assets = [];
+// Global Firebase identifiers (updated in DOMContentLoaded)
+let db = null;
+let isFirebaseReady = false;
 let marketRates = {
     USD: 0,
     silver: { name: 'Gümüş', icon: 'fa-ring', unit: 'gr' },
@@ -13,8 +16,7 @@ let marketRates = {
 };
 
 // Check if Firebase is valid
-const isFirebaseReady = typeof window !== 'undefined' && typeof window.db !== 'undefined';
-const db = isFirebaseReady ? window.db : null;
+
 
 const bankNames = {
     hsbc: 'HSBC',
@@ -25,8 +27,10 @@ const bankNames = {
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
-    // Determine source
-    if (isFirebaseReady) {
+    // Re-check Firebase connection status after all scripts loaded
+    if (typeof window.db !== 'undefined') {
+        db = window.db;
+        isFirebaseReady = true;
         console.log('Using Firebase Cloud Sync ☁️');
         subscribeToData();
     } else {
