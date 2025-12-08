@@ -1,4 +1,6 @@
 // Firebase Configuration
+// Bu bilgileri Firebase Konsolundan aldınız.
+
 const firebaseConfig = {
   apiKey: "AIzaSyAXfHWpe7Pd1yj8lCt8mRw7RBv0x1e6r4E",
   authDomain: "finanstakip-f2dca.firebaseapp.com",
@@ -9,8 +11,12 @@ const firebaseConfig = {
   measurementId: "G-ZWXEXXW5YT"
 };
 
-// Bu dosya yüklendiğinde konsola bilgi verelim
-console.log('Firebase Config loaded. ☁️');
-
-// Bu dosya yüklendiğinde konsola bilgi verelim
-console.log('Firebase Config loaded.');
+// Initialize Firebase
+// Note: We use 'firebase' global from CDN scripts in index.html
+if (typeof firebase !== 'undefined') {
+  const app = firebase.initializeApp(firebaseConfig);
+  var db = firebase.firestore(); // Use var to ensure global scope visibility if needed
+  console.log('Firebase Config loaded. ☁️');
+} else {
+  console.error('Firebase SDK not found. Check index.html');
+}
