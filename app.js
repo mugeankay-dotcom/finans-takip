@@ -223,54 +223,69 @@ window.saveTransaction = function () {
 // Assets
 let editingAssetId = null;
 
-document.getElementById('assetForm').addEventListener('submit', (e) => {
-    e.preventDefault();
+window.saveAsset = function () {
+    try {
+        const bankSelect = document.getElementById('assetBank');
+        const typeSelect = document.getElementById('assetType');
+        const amountInput = document.getElementById('assetAmount');
+        const priceInput = document.getElementById('assetPrice');
+        const dateInput = document.getElementById('assetDate');
 
-    const bankSelect = document.getElementById('assetBank');
-    const typeSelect = document.getElementById('assetType');
-    const amountInput = document.getElementById('assetAmount');
-    const priceInput = document.getElementById('assetPrice');
-    const dateInput = document.getElementById('assetDate');
-
-    const assetData = {
-        bank: bankSelect ? bankSelect.value : 'other',
-        type: typeSelect.value,
-        amount: parseFloat(amountInput.value),
-        price: parseFloat(priceInput.value),
-        date: dateInput.value,
-        createdAt: new Date().toISOString()
-    };
-
-    if (isFirebaseReady) {
-        if (editingAssetId) {
-            db.collection('assets').doc(editingAssetId).update(assetData)
-                .then(() => {
-                    editingAssetId = null;
-                    document.querySelector('#assetModal h2').textContent = 'Yeni Varlık Ekle';
-                    closeModal('assetModal');
-                });
-        } else {
-            db.collection('assets').add(assetData)
-                .then(() => closeModal('assetModal'));
+        // Manual validation
+        if (!typeSelect.value || !amountInput.value || !priceInput.value || !dateInput.value) {
+            alert("Lütfen tüm alanları doldurun.");
+            return;
         }
-    } else {
-        assetData.id = editingAssetId || Date.now();
-        if (editingAssetId) {
-            const index = assets.findIndex(a => a.id === editingAssetId);
-            if (index !== -1) assets[index] = assetData;
-            editingAssetId = null;
+
+        const assetData = {
+            bank: bankSelect ? bankSelect.value : 'other',
+            type: typeSelect.value,
+            amount: parseFloat(amountInput.value),
+            price: parseFloat(priceInput.value),
+            date: dateInput.value,
+            createdAt: new Date().toISOString()
+        };
+
+        // Strict fallback
+        if (typeof isFirebaseReady !== 'undefined' && isFirebaseReady) {
+            if (editingAssetId) {
+                db.collection('assets').doc(editingAssetId).update(assetData)
+                    .then(() => {
+                        editingAssetId = null;
+                        document.querySelector('#assetModal h2').textContent = 'Yeni Varlık Ekle';
+                        closeModal('assetModal');
+                    });
+            } else {
+                db.collection('assets').add(assetData)
+                    .then(() => closeModal('assetModal'));
+            }
+        } else {
+            assetData.id = editingAssetId || Date.now();
+            if (editingAssetId) {
+                const index = assets.findIndex(a => a.id === editingAssetId);
+                if (index !== -1) assets[index] = assetData;
+                editingAssetId = null;
+            } else {
+                if (!Array.isArray(assets)) assets = [];
+                assets.unshift(assetData);
+            }
+            saveDataLocal();
+            updateUI();
+
+            // Reset modal title
             document.querySelector('#assetModal h2').textContent = 'Yeni Varlık Ekle';
-        } else {
-            assets.unshift(assetData);
+            closeModal('assetModal');
         }
-        saveDataLocal();
-        updateUI();
-        closeModal('assetModal');
-    }
 
-    e.target.reset();
-    document.getElementById('assetDate').valueAsDate = new Date();
-});
+        // Reset form
+        document.getElementById('assetForm').reset();
+        document.getElementById('assetDate').valueAsDate = new Date();
+
+    } catch (error) {
+        console.error(error);
+        alert("Hata oluştu: " + error.message);
+    }
+};
 
 // Data Management (Local Fallback)
 function saveDataLocal() {
