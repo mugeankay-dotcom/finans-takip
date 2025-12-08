@@ -461,7 +461,7 @@ function renderAssets() {
     grid.innerHTML = '';
 
     assets.forEach(asset => {
-        const typeInfo = assetTypes[asset.type] || assetTypes.other;
+        const typeInfo = marketRates[asset.type] || marketRates.other;
         const bankName = bankNames[asset.bank] || 'Diğer';
         const cost = asset.amount * asset.price;
 
