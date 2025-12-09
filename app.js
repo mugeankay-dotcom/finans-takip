@@ -393,17 +393,211 @@ function renderAssets() {
             })()}
 
             </div>
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    localStorage.setItem('assets', JSON.stringify(assets));
+    localStorage.setItem('trades', JSON.stringify(trades));
+}
+
+// Global Actions
+window.deleteTransaction = function (id) {
+    if (confirm('Bu işlemi silmek istediğinize emin misiniz?')) {
+        transactions = transactions.filter(t => t.id !== id);
+        saveData();
+        updateUI();
+    }
+}
+
+window.deleteAsset = function (id) {
+    if (confirm('Bu varlığı silmek istediğinize emin misiniz?')) {
+        assets = assets.filter(a => a.id !== id);
+        saveData();
+        updateUI();
+    }
+}
+
+window.editAsset = function (id) {
+    const asset = assets.find(a => a.id === id);
+    if (!asset) return;
+
+    editingAssetId = asset.id;
+    document.querySelector('#assetModal h2').textContent = 'Varlık Düzenle';
+
+    if (document.getElementById('assetBank')) document.getElementById('assetBank').value = asset.bank;
+    document.getElementById('assetType').value = asset.type;
+    document.getElementById('assetAmount').value = asset.amount;
+    document.getElementById('assetPrice').value = asset.price;
+    document.getElementById('assetDate').value = asset.date;
+
+    openModal('assetModal');
+}
+
+// UI Updates
+function updateUI() {
+    updateDashboard();
+    renderTransactions();
+    renderAssets();
+    renderInvestments();
+}
+
+function updateDashboard() {
+    // Calculate Monthly Income/Expense
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+
+    let income = 0;
+    let expense = 0;
+
+    transactions.forEach(t => {
+        const tDate = new Date(t.date);
+        if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+            if (t.type === 'income') income += t.amount;
+            else expense += t.amount;
+        }
+    });
+
+    document.getElementById('monthlyIncome').textContent = formatCurrency(income);
+    document.getElementById('monthlyExpense').textContent = formatCurrency(expense);
+
+    // Calculate Total Wealth
+    let totalAssetValue = assets.reduce((sum, asset) => sum + (asset.amount * asset.price), 0);
+    let netCash = transactions.reduce((sum, t => t.type === 'income' ? sum + t.amount : sum - t.amount), 0);
+
+    document.getElementById('totalWealth').textContent = formatCurrency(totalAssetValue + netCash);
+
+    calculatePortfolioSummary();
+}
+
+function calculatePortfolioSummary() {
+    let totalPL = 0;
+    let totalCost = 0;
+
+    assets.forEach(asset => {
+        const rate = currentRates[asset.type] || 0;
+        const cost = asset.amount * asset.price;
+        totalCost += cost;
+
+        if (rate > 0) {
+            const currentVal = asset.amount * rate;
+            totalPL += (currentVal - cost);
+        }
+    });
+
+    const plEl = document.getElementById('periodProfitLoss');
+    const plPercEl = document.getElementById('plPercentage');
+
+    if (plEl) {
+        plEl.textContent = formatCurrency(totalPL);
+        plEl.className = totalPL >= 0 ? 'amount profit' : 'amount loss';
+        plEl.style.color = totalPL >= 0 ? '#10b981' : '#ef4444';
+
+        if (totalCost > 0) {
+            const perc = (totalPL / totalCost) * 100;
+            plPercEl.textContent = `(% ${ perc.toFixed(2) })`;
+            plPercEl.style.color = totalPL >= 0 ? '#10b981' : '#ef4444';
+        }
+    }
+}
+
+function renderTransactions() {
+    const list = document.getElementById('transactionsList');
+    const recentList = document.getElementById('recentList');
+    list.innerHTML = '';
+    recentList.innerHTML = '';
+
+    transactions.forEach((t, index) => {
+        const item = document.createElement('div');
+        item.className = 'list-item';
+        item.innerHTML = `
+            < div class="item-info" >
+                <h4>${t.category}</h4>
+                <small>${new Date(t.date).toLocaleDateString('tr-TR')}</small>
+            </div >
+            <div class="item-right">
+                <span class="item-amount ${t.type === 'income' ? 'income-text' : 'expense-text'}">
+                    ${t.type === 'income' ? '+' : '-'}${formatCurrency(t.amount)}
+                </span>
+                <button onclick="deleteTransaction(${t.id})" style="border:none; background:none; color:#9ca3af; cursor:pointer; margin-left:10px;"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+
+        list.appendChild(item);
+        if (index < 5) recentList.appendChild(item.cloneNode(true));
+    });
+}
+
+function renderAssets() {
+    const grid = document.getElementById('assetsList');
+    grid.innerHTML = '';
+
+    assets.forEach(asset => {
+        const typeInfo = assetTypes[asset.type] || assetTypes.other;
+        const bankName = bankNames[asset.bank] || 'Diğer';
+        const totalCost = asset.amount * asset.price;
+
+        const card = document.createElement('div');
+        card.className = 'asset-card';
+        card.innerHTML = `
+            < div class="asset-header" >
+                <h3><i class="fas ${typeInfo.icon}"></i> ${typeInfo.name}</h3>
+                <div>
+                    <button onclick="editAsset(${asset.id})" style="border:none; background:none; color:#4f46e5; cursor:pointer; margin-right: 10px;"><i class="fas fa-edit"></i></button>
+                    <button onclick="deleteAsset(${asset.id})" style="border:none; background:none; color:#ef4444; cursor:pointer;"><i class="fas fa-trash"></i></button>
+                </div>
+            </div >
+            <div class="asset-details">
+                <div style="grid-column: span 2; margin-bottom: 5px;">
+                    <span class="detail-label">Kurum</span>
+                    <strong>${bankName}</strong>
+                </div>
+                <div>
+                    <span class="detail-label">Miktar</span>
+                    <strong>${asset.amount} ${typeInfo.unit}</strong>
+                </div>
+
+                ${asset.type !== 'try' ? `
+                <div>
+                    <span class="detail-label">Alış Fiyatı</span>
+                    <strong>${formatCurrency(asset.price)}</strong>
+                </div>
+                ` : ''}
+
+                <div>
+                    <span class="detail-label">Alış Tarihi</span>
+                    <strong>${new Date(asset.date).toLocaleDateString('tr-TR')}</strong>
+                </div>
+                <div>
+                    <span class="detail-label">Toplam Maliyet</span>
+                    <strong>${formatCurrency(totalCost)}</strong>
+                </div>
+
+                <!-- P/L Row -->
+                ${(() => {
+                    const rate = currentRates[asset.type] || 0;
+                    if (rate > 0 && asset.type !== 'try') {
+                        const currentVal = asset.amount * rate;
+                        const pl = currentVal - totalCost;
+                        const color = pl >= 0 ? '#10b981' : '#ef4444';
+                        return `
+                         <div style="grid-column: span 2; margin-top: 5px; border-top: 1px solid #eee; padding-top: 5px;">
+                            <span class="detail-label">Güncel Değer / Kar-Zarar</span>
+                            <strong style="color: ${color}">${formatCurrency(currentVal)} (${formatCurrency(pl)})</strong>
+                         </div>
+                         `;
+                    }
+                    return '';
+                })()}
+
+            </div>
         `;
         grid.appendChild(card);
     });
 }
 
-// Investment & Trade History Logic
+// Investment Logic (Single List)
 function renderInvestments() {
-    // 1. Render Active Portfolio
-    const activeBody = document.getElementById('activePortfolioBody');
-    if (!activeBody) return; // Guard clause
-    activeBody.innerHTML = '';
+    const listBody = document.getElementById('investmentListBody');
+    if (!listBody) return; // Guard clause
+    listBody.innerHTML = '';
 
     assets.forEach(asset => {
         const typeInfo = assetTypes[asset.type] || assetTypes.other;
@@ -411,7 +605,7 @@ function renderInvestments() {
         const totalCost = asset.amount * asset.price;
         let currentVal = 0;
         let pl = 0;
-
+        
         if (asset.type === 'try') {
             currentVal = asset.amount;
             pl = 0;
@@ -422,100 +616,15 @@ function renderInvestments() {
 
         const row = document.createElement('tr');
         row.innerHTML = `
-            <td><i class="fas ${typeInfo.icon}"></i> ${typeInfo.name} <br> <small>${bankNames[asset.bank] || asset.bank}</small></td>
-            <td>${asset.amount} ${typeInfo.unit}</td>
+            < td > <i class="fas ${typeInfo.icon}"></i> ${ typeInfo.name } <br> <small>${asset.amount} ${typeInfo.unit}</small></td>
+            <td>${new Date(asset.date).toLocaleDateString('tr-TR')}</td>
             <td>${asset.type === 'try' ? '-' : formatCurrency(asset.price)}</td>
             <td>${asset.type === 'try' ? '-' : formatCurrency(currentRate)}</td>
-            <td style="color: ${pl >= 0 ? '#10b981' : '#ef4444'}">
-                ${asset.type === 'try' ? '-' : `
-                ${formatCurrency(pl)} <br>
-                <small>(%${totalCost > 0 ? ((pl / totalCost) * 100).toFixed(2) : '0'})</small>
-                `}
-            </td>
-            <td>
-                <button onclick="openSellModal(${asset.id})" class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem; background-color: #f59e0b;">Sat</button>
-            </td>
-        `;
-        activeBody.appendChild(row);
-    });
-
-    // 2. Render Trade History
-    const historyBody = document.getElementById('tradeHistoryBody');
-    if (!historyBody) return;
-    historyBody.innerHTML = '';
-
-    // Sort by sell date descending
-    trades.sort((a, b) => new Date(b.sellDate) - new Date(a.sellDate));
-
-    trades.forEach(trade => {
-        const typeInfo = assetTypes[trade.type] || assetTypes.other;
-        const pl = trade.profitLoss;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><i class="fas ${typeInfo.icon}"></i> ${typeInfo.name}</td>
-            <td>${new Date(trade.buyDate).toLocaleDateString()}</td>
-            <td>${new Date(trade.sellDate).toLocaleDateString()}</td>
-            <td>${formatCurrency(trade.buyPrice)}</td>
-            <td>${formatCurrency(trade.sellPrice)}</td>
             <td style="color: ${pl >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">
-                ${formatCurrency(pl)}
+                ${asset.type === 'try' ? '-' : formatCurrency(pl)}
             </td>
         `;
-        historyBody.appendChild(row);
+        listBody.appendChild(row);
     });
 }
-
-window.openSellModal = function (id) {
-    const asset = assets.find(a => a.id == id); // Loose equality
-    if (!asset) return;
-
-    document.getElementById('sellingAssetId').value = asset.id;
-    const typeInfo = assetTypes[asset.type] || assetTypes.other;
-    document.getElementById('sellAssetName').innerText = `Satılıyor: ${asset.amount} ${typeInfo.unit} ${typeInfo.name}`;
-
-    // Auto-fill current market price if available
-    const currentRate = currentRates[asset.type];
-    if (currentRate && currentRate > 0) {
-        document.getElementById('sellPrice').value = currentRate.toFixed(2);
-    } else {
-        document.getElementById('sellPrice').value = '';
-    }
-
-    openModal('sellModal');
-}
-
-document.getElementById('sellForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const id = document.getElementById('sellingAssetId').value;
-    const sellPrice = parseFloat(document.getElementById('sellPrice').value);
-
-    // Find asset
-    const index = assets.findIndex(a => a.id == id);
-    if (index === -1) return;
-
-    const asset = assets[index];
-    const totalSaleValue = asset.amount * sellPrice;
-    const totalCost = asset.amount * asset.price;
-    const profitLoss = totalSaleValue - totalCost;
-
-    // Create Trade Record
-    const trade = {
-        id: Date.now(),
-        type: asset.type,
-        amount: asset.amount,
-        buyPrice: asset.price,
-        buyDate: asset.date,
-        sellPrice: sellPrice,
-        sellDate: new Date().toISOString(),
-        profitLoss: profitLoss
-    };
-
-    // Add to trades, remove from assets
-    trades.unshift(trade);
-    assets.splice(index, 1);
-
-    saveData();
-    updateUI();
-    closeModal('sellModal');
-});
+// Removed openSellModal and Sell Logic as user requested "Remove Al/Sat".
