@@ -1,6 +1,5 @@
 // Data Storage
 let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
 let assets = JSON.parse(localStorage.getItem('assets')) || [];
 let trades = JSON.parse(localStorage.getItem('trades')) || [];
 
@@ -200,7 +199,6 @@ document.getElementById('assetForm').addEventListener('submit', (e) => {
 // Data Management
 function saveData() {
     localStorage.setItem('transactions', JSON.stringify(transactions));
-    localStorage.setItem('transactions', JSON.stringify(transactions));
     localStorage.setItem('assets', JSON.stringify(assets));
     localStorage.setItem('trades', JSON.stringify(trades));
 }
@@ -240,8 +238,6 @@ window.editAsset = function (id) {
 
 // UI Updates
 function updateUI() {
-    updateDashboard();
-    renderTransactions();
     updateDashboard();
     renderTransactions();
     renderAssets();
@@ -401,3 +397,125 @@ function renderAssets() {
         grid.appendChild(card);
     });
 }
+
+// Investment & Trade History Logic
+function renderInvestments() {
+    // 1. Render Active Portfolio
+    const activeBody = document.getElementById('activePortfolioBody');
+    if (!activeBody) return; // Guard clause
+    activeBody.innerHTML = '';
+
+    assets.forEach(asset => {
+        const typeInfo = assetTypes[asset.type] || assetTypes.other;
+        const currentRate = currentRates[asset.type] || 0;
+        const totalCost = asset.amount * asset.price;
+        let currentVal = 0;
+        let pl = 0;
+
+        if (asset.type === 'try') {
+            currentVal = asset.amount;
+            pl = 0;
+        } else if (currentRate > 0) {
+            currentVal = asset.amount * currentRate;
+            pl = currentVal - totalCost;
+        }
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><i class="fas ${typeInfo.icon}"></i> ${typeInfo.name} <br> <small>${bankNames[asset.bank] || asset.bank}</small></td>
+            <td>${asset.amount} ${typeInfo.unit}</td>
+            <td>${asset.type === 'try' ? '-' : formatCurrency(asset.price)}</td>
+            <td>${asset.type === 'try' ? '-' : formatCurrency(currentRate)}</td>
+            <td style="color: ${pl >= 0 ? '#10b981' : '#ef4444'}">
+                ${asset.type === 'try' ? '-' : `
+                ${formatCurrency(pl)} <br>
+                <small>(%${totalCost > 0 ? ((pl / totalCost) * 100).toFixed(2) : '0'})</small>
+                `}
+            </td>
+            <td>
+                <button onclick="openSellModal(${asset.id})" class="btn-primary" style="padding: 5px 10px; font-size: 0.8rem; background-color: #f59e0b;">Sat</button>
+            </td>
+        `;
+        activeBody.appendChild(row);
+    });
+
+    // 2. Render Trade History
+    const historyBody = document.getElementById('tradeHistoryBody');
+    if (!historyBody) return;
+    historyBody.innerHTML = '';
+
+    // Sort by sell date descending
+    trades.sort((a, b) => new Date(b.sellDate) - new Date(a.sellDate));
+
+    trades.forEach(trade => {
+        const typeInfo = assetTypes[trade.type] || assetTypes.other;
+        const pl = trade.profitLoss;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td><i class="fas ${typeInfo.icon}"></i> ${typeInfo.name}</td>
+            <td>${new Date(trade.buyDate).toLocaleDateString()}</td>
+            <td>${new Date(trade.sellDate).toLocaleDateString()}</td>
+            <td>${formatCurrency(trade.buyPrice)}</td>
+            <td>${formatCurrency(trade.sellPrice)}</td>
+            <td style="color: ${pl >= 0 ? '#10b981' : '#ef4444'}; font-weight: bold;">
+                ${formatCurrency(pl)}
+            </td>
+        `;
+        historyBody.appendChild(row);
+    });
+}
+
+window.openSellModal = function (id) {
+    const asset = assets.find(a => a.id == id); // Loose equality
+    if (!asset) return;
+
+    document.getElementById('sellingAssetId').value = asset.id;
+    const typeInfo = assetTypes[asset.type] || assetTypes.other;
+    document.getElementById('sellAssetName').innerText = `Satılıyor: ${asset.amount} ${typeInfo.unit} ${typeInfo.name}`;
+
+    // Auto-fill current market price if available
+    const currentRate = currentRates[asset.type];
+    if (currentRate && currentRate > 0) {
+        document.getElementById('sellPrice').value = currentRate.toFixed(2);
+    } else {
+        document.getElementById('sellPrice').value = '';
+    }
+
+    openModal('sellModal');
+}
+
+document.getElementById('sellForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = document.getElementById('sellingAssetId').value;
+    const sellPrice = parseFloat(document.getElementById('sellPrice').value);
+
+    // Find asset
+    const index = assets.findIndex(a => a.id == id);
+    if (index === -1) return;
+
+    const asset = assets[index];
+    const totalSaleValue = asset.amount * sellPrice;
+    const totalCost = asset.amount * asset.price;
+    const profitLoss = totalSaleValue - totalCost;
+
+    // Create Trade Record
+    const trade = {
+        id: Date.now(),
+        type: asset.type,
+        amount: asset.amount,
+        buyPrice: asset.price,
+        buyDate: asset.date,
+        sellPrice: sellPrice,
+        sellDate: new Date().toISOString(),
+        profitLoss: profitLoss
+    };
+
+    // Add to trades, remove from assets
+    trades.unshift(trade);
+    assets.splice(index, 1);
+
+    saveData();
+    updateUI();
+    closeModal('sellModal');
+});
