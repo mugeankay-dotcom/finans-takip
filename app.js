@@ -1,6 +1,8 @@
 // Data Storage
 let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
 let assets = JSON.parse(localStorage.getItem('assets')) || [];
+let trades = JSON.parse(localStorage.getItem('trades')) || [];
 
 // Constants
 const assetTypes = {
@@ -119,6 +121,9 @@ window.closeModal = function (modalId) {
         document.querySelector('#assetModal h2').textContent = 'Yeni Varlık Ekle';
         document.getElementById('assetForm').reset();
         document.getElementById('assetDate').valueAsDate = new Date();
+    } else if (modalId === 'sellModal') {
+        document.getElementById('sellForm').reset();
+        document.getElementById('sellingAssetId').value = '';
     }
 }
 
@@ -195,7 +200,9 @@ document.getElementById('assetForm').addEventListener('submit', (e) => {
 // Data Management
 function saveData() {
     localStorage.setItem('transactions', JSON.stringify(transactions));
+    localStorage.setItem('transactions', JSON.stringify(transactions));
     localStorage.setItem('assets', JSON.stringify(assets));
+    localStorage.setItem('trades', JSON.stringify(trades));
 }
 
 // Global Actions
@@ -235,7 +242,10 @@ window.editAsset = function (id) {
 function updateUI() {
     updateDashboard();
     renderTransactions();
+    updateDashboard();
+    renderTransactions();
     renderAssets();
+    renderInvestments();
 }
 
 function updateDashboard() {
